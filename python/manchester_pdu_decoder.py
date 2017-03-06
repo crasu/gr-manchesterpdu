@@ -37,7 +37,10 @@ class manchester_pdu_decoder(gr.sync_block):
     def handle_msg(self, msg):
         msg = pmt.to_python(msg)[1]
         msg_str = ''.join(chr(c) for c in msg)
-        print("\decoded nmessage:{} ".format(manchester_decode(msg_str)))
+        try:
+            print("\nmanchester decode:{} ".format(manchester_decode(msg_str)))
+        except IOError as e:
+            print("\nCannot manchester decode {}".format(msg_str))
 
 def manchester_decode(pulseStream):
     i = 1
@@ -46,9 +49,8 @@ def manchester_decode(pulseStream):
     # here pulseStream[i] is "guaranteed" to be the beginning of a bit
     while i < len(pulseStream):
         if pulseStream[i] == pulseStream[i-1]:
-            # if so, sync has slipped
-            # try to resync
             i = i - 1
+            raise(IOError("Cannot manchester decode {}".format(pulseStream)))
         if pulseStream[i] == '1':
             bits += '1'
         else:
