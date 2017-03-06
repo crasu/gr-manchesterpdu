@@ -1,0 +1,4 @@
+build
+.unittests
+*.pyc
+*.pyo
