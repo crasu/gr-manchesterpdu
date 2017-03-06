@@ -19,8 +19,8 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-import numpy
 from gnuradio import gr
+import pmt
 
 class manchester_pdu_decoder(gr.sync_block):
     """
@@ -31,10 +31,29 @@ class manchester_pdu_decoder(gr.sync_block):
             name="manchester_pdu_decoder",
             in_sig=None,
             out_sig=None)
-        self.message_port_register_in(pmt.intern('msg_in'))
-        self.set_msg_handler(pmt.intern('msg_in'), self.handle_msg)
+        self.message_port_register_in(pmt.intern('in'))
+        self.set_msg_handler(pmt.intern('in'), self.handle_msg)
 
     def handle_msg(self, msg):
-        print("message:")
-        print(message)
+        msg = pmt.to_python(msg)[1]
+        msg_str = ''.join(chr(c) for c in msg)
+        print("\decoded nmessage:{} ".format(manchester_decode(msg_str)))
+
+def manchester_decode(pulseStream):
+    i = 1
+    bits = ''
+
+    # here pulseStream[i] is "guaranteed" to be the beginning of a bit
+    while i < len(pulseStream):
+        if pulseStream[i] == pulseStream[i-1]:
+            # if so, sync has slipped
+            # try to resync
+            i = i - 1
+        if pulseStream[i] == '1':
+            bits += '1'
+        else:
+            bits += '0'
+        i = i + 2
+
+    return bits
 
