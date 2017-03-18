@@ -21,6 +21,7 @@
 
 from gnuradio import gr
 import pmt
+import sys
 
 class manchester_pdu_decoder(gr.sync_block):
     """
@@ -41,6 +42,7 @@ class manchester_pdu_decoder(gr.sync_block):
             print("\nmanchester decode:{} ".format(manchester_decode(msg_str)))
         except IOError as e:
             print("\nCannot manchester decode {}".format(msg_str))
+        sys.stdout.flush()
 
 def manchester_decode(pulseStream):
     i = 1
