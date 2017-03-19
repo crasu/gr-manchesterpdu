@@ -39,9 +39,9 @@ class manchester_pdu_decoder(gr.sync_block):
         msg = pmt.to_python(msg)[1]
         msg_str = ''.join(chr(c) for c in msg)
         try:
-            print("\nmanchester decode:{} ".format(manchester_decode(msg_str)))
+            print("\n{} manchester decode:{} ".format(long(time.time()), manchester_decode(msg_str)))
         except IOError as e:
-            print("\nCannot manchester decode {}".format(msg_str))
+            print("\n{} Cannot manchester decode {}".format(long(time.time()), msg_str))
         sys.stdout.flush()
 
 def manchester_decode(pulseStream):
