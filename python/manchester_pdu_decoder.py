@@ -35,30 +35,50 @@ class manchester_pdu_decoder(gr.sync_block):
             out_sig=None)
         self.message_port_register_in(pmt.intern('in'))
         self.set_msg_handler(pmt.intern('in'), self.handle_msg)
+        self.message_port_register_out(pmt.intern('out'))
 
     def handle_msg(self, msg):
-        msg = pmt.to_python(msg)[1]
-        msg_str = ''.join(chr(c) for c in msg)
+        print("Handle msg called")
+        msg_str = manchester_pdu_decoder.str_from_msg(msg)
         try:
-            print("\n{} manchester decode:{} ".format(long(time.time()), manchester_decode(msg_str)))
+            print("manchester decode:{}\n".format(msg_str))
+            decode = manchester_pdu_decoder.manchester_decode(msg_str)
+            pdu = pmt.cons(pmt.PMT_NIL, manchester_pdu_decoder.vector_from_str(decode))
+            self.message_port_pub(pmt.intern('out'), pdu)
         except IOError as e:
-            print("\n{} Cannot manchester decode {}".format(long(time.time()), msg_str))
+            print("Cannot manchester decode {}\n".format(msg_str))
         sys.stdout.flush()
 
-def manchester_decode(pulseStream):
-    i = 1
-    bits = ''
+    @staticmethod
+    def str_from_msg(msg):
+        msg = pmt.to_python(msg)[1]
+        msg_str = ''.join(chr(c) for c in msg)
+        return msg_str
 
-    # here pulseStream[i] is "guaranteed" to be the beginning of a bit
-    while i < len(pulseStream):
-        if pulseStream[i] == pulseStream[i-1]:
-            i = i - 1
-            raise(IOError("Cannot manchester decode {}".format(pulseStream)))
-        if pulseStream[i] == '1':
-            bits += '1'
-        else:
-            bits += '0'
-        i = i + 2
+    @staticmethod
+    def vector_from_str(value_str):
+        send_pmt = pmt.make_u8vector(len(value_str), ord(' '))
 
-    return bits
+        for i in range(len(value_str)):
+            pmt.u8vector_set(send_pmt, i, ord(value_str[i]))
+
+        return send_pmt
+
+    @staticmethod
+    def manchester_decode(pulseStream):
+        i = 1
+        bits = ''
+
+        # here pulseStream[i] is "guaranteed" to be the beginning of a bit
+        while i < len(pulseStream):
+            if pulseStream[i] == pulseStream[i-1]:
+                i = i - 1
+                raise(IOError("Cannot manchester decode {}".format(pulseStream)))
+            if pulseStream[i] == '1':
+                bits += '1'
+            else:
+                bits += '0'
+            i = i + 2
+
+        return bits
 
