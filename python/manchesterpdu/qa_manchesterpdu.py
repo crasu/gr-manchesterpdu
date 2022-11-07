@@ -22,7 +22,7 @@ import pmt
 import time
 from gnuradio import gr, gr_unittest
 from gnuradio import blocks
-from manchester_pdu_decoder import manchester_pdu_decoder
+from manchesterpdu import manchester_pdu_decoder
 
 def str_to_array(binstr):
     return [int(x) for x in list (binstr)]

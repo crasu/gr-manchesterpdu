@@ -1,0 +1,17 @@
+id: manchesterpdu_manchester_pdu_decoder
+label: manchesterpdu_manchester_pdu_decoder
+category: '[manchesterpdu]'
+
+templates:
+  imports: import manchesterpdu
+  make: manchesterpdu.manchester_pdu_decoder()
+
+inputs:
+- label: in
+  dtype: message
+
+outputs:
+- label: out
+  dtype: message
+
+file_format: 1
