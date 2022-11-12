@@ -31,5 +31,5 @@ except ImportError:
 	pass
 
 # import any pure python here
-from .manchesterpdu import manchester_pdu_decoder
+from .manchester_pdu_decoder import manchester_pdu_decoder
 #
