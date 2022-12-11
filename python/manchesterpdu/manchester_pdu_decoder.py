@@ -19,16 +19,24 @@
 # Boston, MA 02110-1301, USA.
 # 
 
+from enum import Enum
 from gnuradio import gr
 import pmt
 import sys
 import time
 
+class ManchesterMode(Enum):
+    NORMAL = 0
+    IEEE = 1
+    DIFFERENTIAL_BPM = 2
+    DIFFERENTIAL_BPS = 3
+
+
 class manchester_pdu_decoder(gr.sync_block):
     """
     docstring for block manchester_pdu_decoder
     """
-    def __init__(self):
+    def __init__(self, mode=0):
         gr.sync_block.__init__(self,
             name="manchester_pdu_decoder",
             in_sig=None,
@@ -36,13 +44,13 @@ class manchester_pdu_decoder(gr.sync_block):
         self.message_port_register_in(pmt.intern('in'))
         self.set_msg_handler(pmt.intern('in'), self.handle_msg)
         self.message_port_register_out(pmt.intern('out'))
+        self.mode=ManchesterMode(mode)
 
     def handle_msg(self, msg):
-        print("Handle msg called")
         msg_str = manchester_pdu_decoder.str_from_msg(msg)
         try:
-            print("manchester decode:{}\n".format(msg_str))
-            decode = manchester_pdu_decoder.manchester_decode(msg_str)
+            #print("manchester decode:{}\n".format(msg_str))
+            decode = self.manchester_decode(msg_str)
             pdu = pmt.cons(pmt.PMT_NIL, manchester_pdu_decoder.vector_from_str(decode))
             self.message_port_pub(pmt.intern('out'), pdu)
         except IOError as e:
@@ -64,20 +72,27 @@ class manchester_pdu_decoder(gr.sync_block):
 
         return send_pmt
 
-    @staticmethod
-    def manchester_decode(pulseStream):
+    def manchester_decode(self, pulseStream):
         i = 1
         bits = ''
 
-        # here pulseStream[i] is "guaranteed" to be the beginning of a bit
         while i < len(pulseStream):
-            if pulseStream[i] == pulseStream[i-1]:
-                i = i - 1
-                raise(IOError("Cannot manchester decode {}".format(pulseStream)))
-            if pulseStream[i] == '1':
-                bits += '1'
-            else:
-                bits += '0'
+            if self.mode in (ManchesterMode.NORMAL, ManchesterMode.IEEE):
+                if pulseStream[i] == pulseStream[i-1]:
+                    raise(IOError("Cannot manchester decode {}".format(pulseStream)))
+            if self.mode in (ManchesterMode.DIFFERENTIAL_BPM, ManchesterMode.DIFFERENTIAL_BPS):
+                if i + 1 < len(pulseStream) and pulseStream[i] == pulseStream[i+1]:
+                    raise(IOError("Cannot manchester decode {}".format(pulseStream)))
+                    
+            if self.mode == ManchesterMode.NORMAL:
+                bits += '1' if pulseStream[i] == '1' else '0'
+            if self.mode == ManchesterMode.IEEE:
+                bits += '0' if pulseStream[i] == '1' else '1'
+            if self.mode == ManchesterMode.DIFFERENTIAL_BPM:
+                bits += '0' if pulseStream[i] == pulseStream[i-1] else '1'
+            if self.mode == ManchesterMode.DIFFERENTIAL_BPS:
+                bits += '1' if pulseStream[i] == pulseStream[i-1] else '0'
+
             i = i + 2
 
         return bits

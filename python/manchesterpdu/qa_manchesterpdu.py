@@ -23,64 +23,110 @@ import time
 from gnuradio import gr, gr_unittest
 from gnuradio import blocks
 from manchesterpdu import manchester_pdu_decoder
+from manchesterpdu.manchester_pdu_decoder import ManchesterMode
 
-def str_to_array(binstr):
-    return [int(x) for x in list (binstr)]
-
-class manchesterpdu (gr_unittest.TestCase):
-    def setUp(self):
-        self.tb = gr.top_block()
+class ManchesterFlowgraph(object):
+    def __init__(self, mode):
+        self.tb=gr.top_block()
+        self.mode=mode
         self.setup_flow_graph()
 
-    def tearDown(self):
-        self.tb = None
-        self.src = None
-        self.decoder = None
-
-    @staticmethod
-    def create_msg(input):
-        send_pmt = pmt.make_u8vector(len(input), ord(' '))
-        for i in range(len(input)):
-            pmt.u8vector_set(send_pmt, i, ord(input[i]))
-        msg = pmt.cons(pmt.PMT_NIL, send_pmt)
-        return msg
-
     def setup_flow_graph(self):
-        self.tb = gr.top_block()
-        self.decoder = manchester_pdu_decoder()
-        self.dbg = blocks.message_debug()
+        self.tb=gr.top_block()
+        self.decoder=manchester_pdu_decoder(self.mode)
+        self.dbg=blocks.message_debug()
         self.tb.msg_connect(self.decoder, "out", self.dbg, "store")
-
-    def post_str(self, input):
-        msg = manchesterpdu.create_msg(input)
-        self.decoder.to_basic_block()._post(pmt.intern("in"), msg)
-        self.run_flow_graph()
 
     def run_flow_graph(self):
         self.tb.start()
         time.sleep(0.2)
         self.tb.stop()
         self.tb.wait()
+    
+    def post_str(self, input):
+        msg = create_msg(input)
+        self.decoder.to_basic_block()._post(pmt.intern("in"), msg)
+        self.run_flow_graph()
 
-    def message_to_str(self, msg):
-        data = pmt.u8vector_elements(pmt.cdr(msg))
-        return "".join([chr(i) for i in data])
+    def __enter__(self):
+        return self
 
+    def __exit__(self, type, value, traceback):
+        self.tb = None
+        self.src = None
+        self.decoder = None
+
+
+def message_to_str(msg):
+    data = pmt.u8vector_elements(pmt.cdr(msg))
+    return "".join([chr(i) for i in data])
+
+def str_to_array(binstr):
+    return [int(x) for x in list (binstr)]
+
+def create_msg(input):
+    send_pmt = pmt.make_u8vector(len(input), ord(' '))
+    for i in range(len(input)):
+        pmt.u8vector_set(send_pmt, i, ord(input[i]))
+    msg = pmt.cons(pmt.PMT_NIL, send_pmt)
+    return msg
+
+
+class manchesterpdu (gr_unittest.TestCase):
     def test_msg_decodes(self):
-        self.post_str("10011010")
-        self.assertEqual(self.dbg.num_messages(), 1)
-        msg = self.dbg.get_message(0)
-        self.assertEqual(self.message_to_str(msg), "0100")
+        modes = {
+            ManchesterMode.NORMAL: "0100",
+            ManchesterMode.IEEE: "1011",
+        }
 
+        for mode, result in modes.items():
+            with ManchesterFlowgraph(mode) as fg:
+                fg.post_str("10011010")
+                self.assertEqual(fg.dbg.num_messages(), 1)
+                msg = fg.dbg.get_message(0)
+                self.assertEqual(message_to_str(msg), result)
+
+    def test_differential_decode(self):
+        modes = {
+            ManchesterMode.DIFFERENTIAL_BPM: "0101",
+            ManchesterMode.DIFFERENTIAL_BPS: "1010",
+        }
+
+        for mode, result in modes.items():
+            with ManchesterFlowgraph(mode) as fg:
+                fg.post_str("00101101")
+                self.assertEqual(fg.dbg.num_messages(), 1)
+                msg = fg.dbg.get_message(0)
+                self.assertEqual(message_to_str(msg), result)
+
+    
     def test_msg_all_zero(self):
-        self.post_str("000")
-        self.assertEqual(self.dbg.num_messages(), 0)
+        modes = [
+            ManchesterMode.NORMAL,
+            ManchesterMode.DIFFERENTIAL_BPS,
+        ]
 
+        for mode in modes:
+            with ManchesterFlowgraph(mode) as fg:
+                fg.post_str("000")
+                self.assertEqual(fg.dbg.num_messages(), 0)
+
+    
     def test_ignore_msg_cut_off(self):
-        self.post_str("010")
-        self.assertEqual(self.dbg.num_messages(), 1)
-        msg = self.dbg.get_message(0)
-        self.assertEqual(self.message_to_str(msg), "1")
+        with ManchesterFlowgraph(ManchesterMode.NORMAL) as fg:
+            fg.post_str("010")
+            self.assertEqual(fg.dbg.num_messages(), 1)
+            msg = fg.dbg.get_message(0)
+            self.assertEqual(message_to_str(msg), "1")
+
+
+    def test_ignore_msg_cut_off_diffential(self):
+        with ManchesterFlowgraph(ManchesterMode.DIFFERENTIAL_BPM) as fg:
+            fg.post_str("001")
+            self.assertEqual(fg.dbg.num_messages(), 1)
+            msg = fg.dbg.get_message(0)
+            self.assertEqual(message_to_str(msg), "0")
+
 
 if __name__ == '__main__':
-    gr_unittest.run(manchesterpdu, "qa_manchesterpdu.xml")
+    gr_unittest.run(manchesterpdu)

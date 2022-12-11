@@ -4,7 +4,15 @@ category: '[manchesterpdu]'
 
 templates:
   imports: import manchesterpdu
-  make: manchesterpdu.manchester_pdu_decoder()
+  make: manchesterpdu.manchester_pdu_decoder(${mode})
+
+parameters:
+- id: mode
+  label: Decoder Mode
+  dtype: enum
+  default: '0'
+  options: ['0', '1', '2', '3']
+  option_labels: [Normal, IEEE, D_BPM, D_BPS]
 
 inputs:
 - label: in
